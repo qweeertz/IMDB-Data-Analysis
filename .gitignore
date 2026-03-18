@@ -1,0 +1,4 @@
+.env
+Data/IMDB.duckdb
+Data/data.parquet
+Data/IMDB.duckdb.tmp/

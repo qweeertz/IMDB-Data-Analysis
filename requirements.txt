@@ -1,0 +1,12 @@
+streamlit
+pandas
+duckdb
+plotly
+pycountry
+langcodes
+aiohttp
+aiolimiter
+networkx
+pyvis
+python-dotenv
+requests
