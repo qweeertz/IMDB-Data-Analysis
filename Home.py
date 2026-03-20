@@ -14,6 +14,7 @@ def ensure_processed_data():
     
     try:
         zip_url = st.secrets['zip_url']
+        print('Downloading data from private link...')
         download_and_extract_zip(zip_url)
         return
     except Exception:

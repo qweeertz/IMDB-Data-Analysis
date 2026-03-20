@@ -1,3 +1,4 @@
 .env
+.streamlit/
 processed_data/
 raw_data/
