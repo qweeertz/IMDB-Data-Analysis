@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 import plotly.express as px
 from utils.helper_functions import votes_slider, type_select, country_name
 
@@ -8,15 +9,17 @@ from utils.helper_functions import votes_slider, type_select, country_name
 st.title('Analysis of ratings')
 
 df = st.session_state.df
+dir = 'processed_data/2_Ratings'
 
 # =================================================================================================
 
-st.subheader('What is the general distribution of IMDB ratings?')
+st.header('What is the general distribution of IMDB ratings?')
 
 allowed_types = type_select('select_ratings')
-votes = votes = votes_slider('slider_ratings')
+votes = votes_slider('slider_ratings')
 votes_filter = (df['IMDBVotes'] >= votes)
-df_ratings = df.loc[votes_filter & df['Type'].isin(allowed_types), ['IMDBRating']]
+df_filtered = df[votes_filter & df['Type'].isin(allowed_types)]
+df_ratings = df_filtered[['IMDBRating']]
 
 ratings_filter = df_ratings['IMDBRating'].describe()
 ratings_all = df['IMDBRating'].describe()
@@ -37,9 +40,9 @@ st.write(
     f'''
     A few notes:
     - The distribution for the entire dataset is a :yellow[bit skewed] with a median of {ratings_all['50%']:.2f} and an average of {ratings_all['mean']:.2f}.
-    - When increasing the number of minimum IMDB votes, the distribution becomes :yellow[slightly more concentrated around a slightly higher average].
+    - When increasing the number of minimum IMDB votes, the distribution becomes :yellow[more normally distributed around a slightly higher average].
     In the entire dataset, 50% of the titles are rated between ({ratings_all['25%']}, {ratings_all['75%']})
-    while with a minimum of 20.000 IMDB votes, 50% of the titles are rated between ({ratings_20k['25%']},{ratings_20k['75%']}).
+    while with a minimum of 20.000 IMDB votes, 50% of the titles are rated between ({ratings_20k['25%']}, {ratings_20k['75%']}).
     The averages change from {ratings_all['mean']:.2f} to {ratings_20k['mean']:.2f}.
     - Some datasets (most notably games with more than 20.000 IMDB votes) can be :yellow[quite extreme] (with an average of approximately 9).
     Another example are TV episodes with more than 20.000 IMDB votes which also strongly tends to very high ratings.
@@ -50,13 +53,9 @@ N_topbot = 50
 
 st.write(f'_Disclaimer_: The below Top and Bottom {N_topbot} :yellow[respects the minimum number of IMDB votes] from aboves slider.')
 
-df_filtered = df[votes_filter & (df['Type'].isin(allowed_types))][['tconst', 'PrimaryTitle', 'Type', 'IMDBRating', 'IMDBVotes']]
+df_filtered = df_filtered[['tconst', 'PrimaryTitle', 'Link', 'Type', 'IMDBRating', 'IMDBVotes']]
 df_top = df_filtered.sort_values('IMDBRating', ascending=False).head(N_topbot)
 df_bot = df_filtered.sort_values('IMDBRating', ascending=True).head(N_topbot)
-
-df_top.insert(2, 'Link', 'https://www.imdb.com/title/' + df_top['tconst'])
-df_bot.insert(2, 'Link', 'https://www.imdb.com/title/' + df_bot['tconst'])
-
 df_top.drop(columns=['tconst'], inplace=True)
 df_bot.drop(columns=['tconst'], inplace=True)
 
@@ -84,7 +83,7 @@ st.write(
 
 st.divider()
 
-st.subheader('Ratings vs types')
+st.header('Ratings vs types')
 
 st.write(
     '''
@@ -97,10 +96,7 @@ st.write(
     '''
 )
 
-votes = votes = votes_slider('slider_ratings_type')
-votes_filter = (df['IMDBVotes'] >= votes)
-
-df_type = df.loc[votes_filter, ['Type', 'IMDBRating']]
+df_type = df[['Type', 'IMDBRating']]
 median_types = df_type.groupby('Type')['IMDBRating'].median().sort_values(ascending=False)
 
 fig = px.box(df_type, x='Type', y='IMDBRating')
@@ -112,7 +108,7 @@ st.plotly_chart(fig)
 
 st.divider()
 
-st.subheader('Ratings vs country of origin')
+st.header('Ratings vs country of origin')
 
 st.write(
     '''
@@ -129,20 +125,10 @@ st.write(
     '''
 )
 
-allowed_types = type_select('select_ratings_countries', default=[True, True, False, False, True])
-votes = votes = votes_slider('slider_ratings_countries')
-votes_filter = (df['IMDBVotes'] >= votes)
-
 N_countries = 10
 
-df_countries = df[votes_filter & (df['Type'].isin(allowed_types))][['OriginCountry', 'IMDBRating']].explode('OriginCountry')
-
-filtered_countries = df_countries['OriginCountry'].value_counts().head(N_countries)
-
-df_countries = df_countries[df_countries['OriginCountry'].isin(filtered_countries.index)]
-
-median_countries = df_countries.groupby('OriginCountry').median().sort_values('IMDBRating', ascending=False).reset_index()
-median_countries['OriginCountry'] = median_countries['OriginCountry'].apply(country_name)
+df_countries = pd.read_parquet(dir + '/df_countries.parquet')
+median_countries = pd.read_parquet(dir + '/median_countries.parquet')
 
 fig = px.box(df_countries, x=df_countries['OriginCountry'].apply(country_name), y='IMDBRating')
 fig.update_xaxes(categoryorder='array', categoryarray=median_countries['OriginCountry'])
@@ -162,16 +148,13 @@ st.write(
 
 st.divider()
 
-st.subheader('Ratings over time')
+st.header('Ratings over time')
 
 st.write('Are :yellow[older titles rated higher or lower]? Is there any relation at all?')
 
 st.write('Since plotting boxplots for each year becomes quite busy, below, we only plot the :yellow[median (white)] for the different types.')
 
-votes = votes = votes_slider('slider_ratings_years')
-votes_filter = (df['IMDBVotes'] >= votes)
-
-df_years = df.loc[votes_filter, ['Type', 'StartYear', 'IMDBRating']].groupby(['Type', 'StartYear'], observed=True)['IMDBRating'].mean().reset_index()
+df_years = pd.read_parquet(dir + '/df_years.parquet')
 
 fig = px.line(df_years, x='StartYear', y='IMDBRating', color='Type', color_discrete_map=st.session_state.type_colors)
 fig.update_xaxes(range=[1870, 2030], tickmode='array', tickvals=list(range(1870, 2030, 10)))
@@ -182,19 +165,17 @@ st.markdown(
     A few notes:
     - The :yellow[sharp spikes], most significantly for shorts and movies, in 2026 is simply due to :yellow[imcomplete data]. These should be disregarded in this analysis.
     - In this plot, one can clearly see in which year each type :yellow[first appears].
-    Note, that we only consider titles with :yellow[at the very least 100 IMDB votes], so this is not to be taken at face value.
+    Note, that we only consider titles with :yellow[at the very least 100 IMDB votes], so these are not historically the first titles to be released.  
     In fact, the first short listed on the IMDB in 1874, the [Passage de Venus](https://www.imdb.com/title/tt3155794), can be seen here.
     However, the first series listed in the IMDB Web Search, [BYU Weekly](https://www.imdb.com/title/tt32252746) is not listed in our dataset (as it only has 6 IMDB Votes).
-    Still, we get an overview and see that shorts were released first, then movies, followed by series and episodes while games only appeared in 1971 in our dataset
+    Nonetheless, we get an overview and see that shorts were released first, then movies, followed by series and episodes while games only appeared in 1971 in our dataset
     (while the first video game listed in the entire IMDB database [Turochamp](https://www.imdb.com/title/tt9324640) was released in 1948).
-    - :yellow[Movies], at all minimum number of IMDB votes, show a :yellow[decreasing trend] over time. However, the median itself highly depends on the minimum number of
-    IMDB votes selected.
-    - The same is true for :yellow[series] while, interestingly, :yellow[episodes] show an :yellow[upward trend] when considering the :yellow[entire dataset].
-    Lesser known titles, in general, are :yellow[more vulnerable] to :yellow[skewed ratings]. This is true :yellow[more so for episodes] which get rated way less than
-    their corresponding series.
-    - :yellow[Shorts at 100 minimum IMDB votes] show an :yellow[upward trend], while shorts with :yellow[at least 20.000 IMDB votes] show a rather :yellow[stagnant trend].
-    - :yellow[Games] are quite :yellow[constantly rated highly].
-    - Again, overall, we see that :yellow[movies] are generally :yellow[rated the lowest], followed by shorts and series while episodes and games are on top.
+    - :yellow[Movies] mostly show a :yellow[decreasing trend] over time and :yellow[mostly are rated lowest].
+    - :yellow[Series] show a :yellow[decreasing trend] roughly from :yellow[1950 to 2010] and an :yellow[increasing trend since then].
+    - :yellow[Episodes] are basically decoupled from series and for most times, they are :yellow[rated highest]. This goes to show that only a subset of people
+    (the fans) rate individual episodes of a series and probably focus on episodes that they liked a lot.
+    - Aside from the very early years, :yellow[Shorts] are :yellow[quite conistent], with a :yellow[slight upward trend] since the :yellow[mid-1960s].
+    - :yellow[Games] are quite :yellow[volatile], but in general rated pretty highly.
     '''
 )
 
@@ -202,7 +183,7 @@ st.markdown(
 
 st.divider()
 
-st.subheader('Compare IMDB rating to TMDB rating')
+st.header('Compare IMDB rating to TMDB rating')
 
 st.write('Are there "global" :yellow[differences] in the :yellow[ratings] between the :yellow[IMDB] and the :yellow[TMDB] community?')
 
@@ -260,22 +241,19 @@ st.header('Is there some correlation between the IMDB ratings and the titles run
 
 st.write(
     '''
-    Again, to exclude the very high runtimes of series, we focus on titles of :yellow[at most 240 minutes].  
-    Since the individual lines are quite noisy, we supply the filtering below.
+    Again, to exclude very high runtimes, we focus on titles of :yellow[at most 240 minutes]. Since :yellow[games and series] are so inconsistent in their runtimes,
+    we :yellow[exlucde them] here.
     ''')
 
-allowed_types = type_select('ratings_runtime', default=[True, False, True, False, True])
+df_runtime = pd.read_parquet(dir + '/df_runtime.parquet')
 
-df_runtime = df.loc[(df['Type'].isin(allowed_types)) & (df['Runtime'] <= 240), ['IMDBRating', 'Runtime', 'Type']]
-
-fig = px.line(df_runtime.groupby(['Type', 'Runtime'], observed=True).mean('IMDBRating').reset_index(), x='Runtime', y='IMDBRating', color='Type', color_discrete_map=st.session_state.type_colors)
+fig = px.line(df_runtime, x='Runtime', y='IMDBRating', color='Type', color_discrete_map=st.session_state.type_colors)
 st.plotly_chart(fig)
 
 st.write(
     '''
     A few notes:
-    - Again, :yellow[games should be excluded], due to the fact that a well-defined Runtime is not really applicable.
-    - :yellow[Series] and :yellow[episodes] are similarly :yellow[noisy] and both show :yellow[no real trend] between runtime and the IMDB rating.
+    - :yellow[Episodes] are quite :yellow[noisy] and show :yellow[no real trend] between runtime and the IMDB rating.
     - :yellow[Shorts] are :yellow[elusive]. There seems to be one short listed with a runtime of 89 minutes which hardly can be classified as a short.
     This classificiation even above, say, 30 minutes is somewhat questionable.  
     In any case, disregarding these high runtimes, shorts are :yellow[quite consistent except] for :yellow[very short ones] with runtimes of 1-2 minutes.

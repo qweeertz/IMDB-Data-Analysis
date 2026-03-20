@@ -1,20 +1,11 @@
 import streamlit as st
 import pycountry
 import langcodes
-from tools import load_data
 
 
 # =================================================================================================
 
 '''File containing several functions often called in the streamlit app.'''
-
-
-@st.cache_data
-def import_data():
-    '''Wrapper of load_data defined in tools.py to use data caching from streamlit.'''
-    df = load_data()
-    return df
-
 
 def votes_slider(key):
     '''Creation of a slider to set minimum IMDB Votes.'''

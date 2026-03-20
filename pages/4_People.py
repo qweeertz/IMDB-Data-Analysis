@@ -1,58 +1,12 @@
 import streamlit as st
 import plotly.express as px
 import pandas as pd
-from utils.helper_functions import country_name, make_hovertext
+from utils.helper_functions import country_name
 
 
 # =================================================================================================
 
-@st.cache_data
-def filter_df(df, votes):
-    return df[(df['IMDBVotes'] >= votes) & (df['Type'] == 'Movies')].copy()
-
-@st.cache_data
-def explode_role(df, role):
-    df_small = df[[role, 'PrimaryTitle', 'IMDBRating', 'IMDBVotes']].copy()
-    df_small[role] = df_small[role].apply(tuple)
-    return df_small.explode(role).copy()
-
-@st.cache_data
-def compute_role_stats(df_exploded, role):
-    df_titles = (
-        df_exploded.groupby(role)
-        .agg(
-            MeanRating=('IMDBRating', 'mean'),
-            MeanVotes=('IMDBVotes', 'mean'),
-            Count=('PrimaryTitle', 'count'),
-            Movies_Rating=('PrimaryTitle', lambda titles: sorted(
-                list(zip(df_exploded.loc[titles.index].drop_duplicates('PrimaryTitle')['PrimaryTitle'], df_exploded.loc[titles.index].drop_duplicates('PrimaryTitle')['IMDBRating'])),
-                key=lambda t: t[1], reverse=True
-            )),
-            Movies_Votes=('PrimaryTitle', lambda titles: sorted(
-                list(zip(df_exploded.loc[titles.index].drop_duplicates('PrimaryTitle')['PrimaryTitle'], df_exploded.loc[titles.index].drop_duplicates('PrimaryTitle')['IMDBVotes'])),
-                key=lambda t: t[1], reverse=True
-            ))
-        )
-        .reset_index()
-        .copy()
-    )
-    df_titles['hovertext_rating'] = df_titles['Movies_Rating'].map(make_hovertext)
-    df_titles['hovertext_votes'] = df_titles['Movies_Votes'].map(make_hovertext)
-    return df_titles
-
-@st.cache_data
-def get_person_df(df, role, name):
-    df_name = df[[role, 'PrimaryTitle', 'StartYear', 'IMDBRating', 'IMDBVotes', 'OriginCountry', 'Genres']].copy()
-    df_name = df_name.explode(role).copy()
-    df_name = df_name[df_name[role] == name].copy()
-    df_name['Count'] = 1
-    return df_name
-
-@st.cache_data
-def load_graph():
-    nodes = pd.read_parquet('Data/Nodes.parquet')
-    edges = pd.read_parquet('Data/Edges.parquet')
-    return nodes, edges
+dir = 'processed_data/4_People'
 
 # =================================================================================================
 
@@ -62,20 +16,17 @@ st.write(
     '''
     _Disclaimer_: Many people are involved in the production of movies, series, games, etc. Since the production of games (and shorts) is probably (quite) disjoint from the rest,
     we :yellow[solely focus] on :yellow[movies] and :yellow[series] (episodes will be excluded as well since everything should be captured by series already).  
-    In addition, below we set the :yellow[minimum number of IMDB votes] to somewhat :yellow[filter for relevance].
-    The default, 25.000, is chosen in agreement with IMDBs requirement to be listed in their Top 250 (Movie) list.  
-    You can :yellow[choose a tab] to display directors, writers, actors, actresses, cinematographers and composers. The last tab, :yellow["Graph"], shows a network graph
+    In addition, below we set the :yellow[minimum number of IMDB votes] to :yellow[25.000] to somewhat :yellow[filter for relevance] in agreement with IMDBs requirement to be listed in
+    their Top 250 (Movies) list.  
+    You can :yellow[choose a tab] to display directors, writers, actors, actresses, cinematographers and composers and below the top lists, view statistics for individual people.  
+    The last tab, :yellow["Graph"], shows a network graph
     of people involved in the industry. This should be considered as a playful tool (and a good exercise for me) and not a very useful metric.
     '''
 )
 
-col1, col2, col3 = st.columns([1, 1, 2])
+col1, col2 = st.columns([1, 3])
 with col1:
-    IMDBVotes = st.number_input('Number of minimum IMDB votes', min_value=100, max_value=100000, step=1000, value=25000)
-with col2:
-    N_people = st.number_input('Number of people considered', min_value=10, max_value=100, step=5, value=20)
-
-df = filter_df(st.session_state.df, IMDBVotes)
+    N_people = st.number_input('Number of people considered', min_value=10, max_value=200, step=5, value=20)
 
 roles = ['Directors', 'Writers', 'Actors', 'Actresses', 'Cinematographers', 'Composers', 'Graph']
 
@@ -99,8 +50,8 @@ for r, role in enumerate(roles):
                 '''
             )
 
-            df_exploded = explode_role(df, role)
-            df_titles = compute_role_stats(df_exploded, role)
+            df = pd.read_parquet(dir + '/df_' + role.lower() + '.parquet')
+            df_titles = pd.read_parquet(dir + '/df_titles_' + role.lower() + '.parquet')
 
             active, popular, rating = st.columns(3)
 
@@ -117,22 +68,22 @@ for r, role in enumerate(roles):
                 st.plotly_chart(fig)
 
             with popular:
-                fig = px.bar(df_titles[df_titles['Count'] >= 4].sort_values('MeanVotes', ascending=False).head(N_people), x='MeanVotes', y=role, orientation='h', text='MeanVotes',
+                fig = px.bar(df_titles.sort_values('MeanVotes', ascending=False).head(N_people), x='MeanVotes', y=role, orientation='h', text='MeanVotes',
                              height=40 * N_people, hover_name=role, hover_data={'hovertext_votes': True, 'MeanVotes': False, role: False})
                 fig.update_traces(textposition='inside', textfont_size=100, textfont=dict(color='black'), textangle=0, texttemplate='%{x:.0f}',
-                                  customdata=df_titles[df_titles['Count'] >= 4].sort_values('MeanVotes', ascending=False).head(N_people)[[role, 'MeanVotes', 'hovertext_votes']],
+                                  customdata=df_titles.sort_values('MeanVotes', ascending=False).head(N_people)[[role, 'MeanVotes', 'hovertext_votes']],
                                   hovertemplate='<b>%{customdata[0]}</b><br>' +
-                                  'Average votes: %{customdata[1]:.2f}<br><br>' +
+                                  'Average votes: %{customdata[1]:.0f}<br><br>' +
                                   '<i>Top 10 Movies</i>:<br>%{customdata[2]}')
                 fig.update_yaxes(autorange='reversed')
                 fig.update_layout(xaxis_title='Average IMDB votes', yaxis_title='')
                 st.plotly_chart(fig)
 
             with rating:
-                fig = px.bar(df_titles[df_titles['Count'] >= 4].sort_values('MeanRating', ascending=False).head(N_people), x='MeanRating', y=role, orientation='h', text='MeanRating',
+                fig = px.bar(df_titles.sort_values('MeanRating', ascending=False).head(N_people), x='MeanRating', y=role, orientation='h', text='MeanRating',
                              height=40 * N_people, hover_name=role, hover_data={'Count': True, 'hovertext_rating': True, 'MeanRating': False, role: False})
                 fig.update_traces(textposition='inside', textfont_size=100, textfont=dict(color='black'), textangle=0, texttemplate='%{x:.2f}',
-                                  customdata=df_titles[df_titles['Count'] >= 4].sort_values('MeanRating', ascending=False).head(N_people)[[role, 'Count', 'hovertext_rating']],
+                                  customdata=df_titles.sort_values('MeanRating', ascending=False).head(N_people)[[role, 'Count', 'hovertext_rating']],
                                   hovertemplate='<b>%{customdata[0]}</b><br>' +
                                   'Count: %{customdata[1]}<br><br>' +
                                   '<i>Top 10 Movies</i>:<br>%{customdata[2]}')
@@ -144,14 +95,14 @@ for r, role in enumerate(roles):
 
             st.divider()
 
-            st.subheader('What are statistics about individual ' + role + '?')
+            st.subheader('What are statistics about individual ' + role.lower() + '?')
 
             col1, col2 = st.columns([1, 3])
             with col1:
                 names = df_titles.sort_values('Count', ascending=False)[role].unique()
                 name = st.selectbox('Choose a ' + role[:-1] + ' (can also type):', names, index=0, key=role[:-1] + '_name')
 
-            df_name = get_person_df(df, role, name)
+            df_name = df[df[role] == name]
 
             genres = df_name['Genres'].explode('Genres').value_counts().reset_index()
             countries = df_name['OriginCountry'].explode('OriginCountry').value_counts().reset_index()
@@ -203,7 +154,7 @@ for r, role in enumerate(roles):
                 '''
             )
 
-            with open('Data/Network.html', 'r', encoding='utf-8') as f:
+            with open(dir + '/Network.html', 'r', encoding='utf-8') as f:
                 html = f.read()
 
             wrapped_html = f'''

@@ -1,6 +1,38 @@
 import streamlit as st
-from utils.helper_functions import import_data
+import pandas as pd
+import requests
+import zipfile
+import io
+import os
 
+
+# =================================================================================================
+
+def ensure_processed_data():
+    if os.path.exists('processed_data'):
+        return
+    
+    try:
+        zip_url = st.secrets['zip_url']
+        download_and_extract_zip(zip_url)
+        return
+    except Exception:
+        st.error(
+            'No processed_data folder found and no download link provided. Please generate the data locally first by executing src/prepare_all_data.py'
+        )
+        raise FileNotFoundError('No processed_data folder found and no download link provided. Please generate the data locally first by executing src/prepare_all_data.py')
+
+def download_and_extract_zip(url):
+    response = requests.get(url)
+    response.raise_for_status()
+    with zipfile.ZipFile(io.BytesIO(response.content)) as z:
+        z.extractall()
+
+@st.cache_data
+def import_data():
+    ensure_processed_data()
+    df = pd.read_parquet('processed_data/full_data.parquet')
+    return df
 
 # =================================================================================================
 
@@ -92,13 +124,12 @@ st.divider()
 
 st.subheader('The Data')
 
-df_display = df[(df['Type'].isin(['Movies', 'Series', 'Shorts'])) & (df['IMDBVotes'] >= 10000)].sort_values(by='IMDBRating', ascending=False).head(100).copy()
-df_display.insert(1, 'Link', 'https://www.imdb.com/title/' + df_display['tconst'])
+df_display = df[(df['Type'].isin(['Movies', 'Series', 'Shorts'])) & (df['IMDBVotes'] >= 10000)].sort_values(by='IMDBRating', ascending=False).head(50).copy()
 df_display[st.session_state.list_columns] = df_display[st.session_state.list_columns].astype(str)
 
 st.write(
     '''
-    Below is an excerpt of :yellow[100 titles] of the data focusing on titles (movies, TV series and shorts) with at least 10000 IMDB Votes sorted by IMDB Rating
+    Below is an excerpt of :yellow[50 titles] of the data focusing on titles (movies, TV series and shorts) with at least 10000 IMDB Votes sorted by IMDB Rating
     to give an idea of the data.
     '''
 )
@@ -123,10 +154,11 @@ st.write(
     '''
     _tconst_ (str) : unique IMDB ID \n
     _PrimaryTitle_ (str) : (english) primary title \n
+    _Link_ (str) : link to the IMDB webpage \n
     _OriginalTitle_ (str) : original title \n
     _OriginalLanguage_ (str) : original language using ISO 639-1 from TMDB \n
     _OriginCountry_ (tuple of str) : Tuple of countries of origin using ISO-3166 Alpha-2 from TMDB \n
-    _Type_ (str) : Type of the title with values ['movie', 'tvMovie', 'tvSeries', 'tvMiniSeries', 'tvEpisode', 'short', 'tvShort', 'videoGame', 'video', 'tvSpecial'] \n
+    _Type_ (str) : Type of the title with values ['Movies', 'Series', 'Episodes', 'Games', 'Shorts'] \n
     _StartYear_ (pd.Int64) : Year of release. Since the data includes TV series that stretch over years, this is called StartYear \n
     _EndYear_ (pd.Int64) : Year of end. Almost always None (or rather pd.NA), except for TV series (and maybe few other exceptions) \n
     _Genres_ (tuple of str) : Tuple of genres \n

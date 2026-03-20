@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 import plotly.express as px
 
 
@@ -31,20 +32,19 @@ def compute_role_stats(df_role, role):
         .reset_index()
     )
 
+dir = 'processed_data/5_Finances'
+
 # =================================================================================================
 
 st.title('Analysis of some financial aspects')
 
 df = st.session_state.df
 
-df = df[(df['Type'] == 'Movies') & (df['IMDBVotes'] >= 10000)]
-budget_filter, revenue_filter = (df['Budget'] >= 1000), (df['Revenue'] >= 1000)
-df_budget = df.loc[budget_filter, ['tconst', 'PrimaryTitle', 'Budget']].sort_values('Budget', ascending=False)
-df_revenue = df.loc[revenue_filter, ['tconst', 'PrimaryTitle', 'Revenue']].sort_values('Revenue', ascending=False)
-df_roi = df.loc[budget_filter & revenue_filter, ['tconst', 'PrimaryTitle', 'Budget', 'Revenue', 'StartYear', 'IMDBVotes', 'IMDBRating', 'Genres', 'Directors', 'Actors', 'Actresses']]
-df_roi['ROI'] = df_roi['Revenue'] / df_roi['Budget']
-df_roi['Profit'] = df_roi['Revenue'] - df_roi['Budget']
-df_roi.sort_values('ROI', ascending=False, inplace=True)
+df_filtered = df[(df['Type'] == 'Movies') & (df['IMDBVotes'] >= 10000)]
+budget_filter, revenue_filter = (df_filtered['Budget'] >= 1000), (df_filtered['Revenue'] >= 1000)
+df_budget = df_filtered.loc[budget_filter, ['tconst', 'PrimaryTitle', 'Budget']].sort_values('Budget', ascending=False)
+df_revenue = df_filtered.loc[revenue_filter, ['tconst', 'PrimaryTitle', 'Revenue']].sort_values('Revenue', ascending=False)
+df_roi = pd.read_parquet(dir + '/df_roi.parquet')
 
 st.write(
     '''
@@ -175,7 +175,7 @@ st.divider()
 
 st.subheader('How did the (total) budget, revenue and profit evolve over the years?')
 
-df_years = df_roi.groupby('StartYear')[['Budget', 'Revenue', 'Profit']].sum().reset_index()
+df_years = pd.read_parquet(dir + '/df_years.parquet')
 fig = px.line(df_years, x='StartYear', y=['Budget', 'Revenue', 'Profit'])
 fig.update_layout(bargap=0.05, xaxis_title='Release Year', yaxis_title='(US$)', legend_title_text='')
 st.plotly_chart(fig)
@@ -226,7 +226,7 @@ st.divider()
 
 st.subheader('What genres are most expensive to make? What genres generate the highest revenue and offer the highest ROI?')
 
-df_genres = df_roi[['Budget', 'Revenue', 'ROI', 'Genres']].explode('Genres').groupby('Genres')[['Budget', 'Revenue', 'ROI']].mean().reset_index()
+df_genres = pd.read_parquet(dir + '/df_genres.parquet')
 
 col1, col2 = st.columns([0.2, 0.8])
 with col1:
@@ -292,9 +292,8 @@ col1, col2 = st.columns([0.2, 0.8])
 with col1:
     metric = st.selectbox('Sort genres by', ['Budget', 'Revenue', 'ROI'], index=1, key='people')
 
-exploded = prepare_exploded(df_roi)
 role_stats = {
-    role: compute_role_stats(exploded[role], role)
+    role: pd.read_parquet(dir + '/df_' + role.lower() + '.parquet')
     for role in ['Directors', 'Actors', 'Actresses']
 }
 
@@ -304,7 +303,7 @@ for col, role in zip(cols, ['Directors', 'Actors', 'Actresses']):
         min_count = 2 if role == 'Directors' else 5
         df_role = role_stats[role].copy()
         df_role = df_role[df_role['Count'] >= min_count]
-        df_role = df_role.sort_values('Mean' + metric, ascending=False).head(20)
+        df_role = role_stats[role].sort_values('Mean' + metric, ascending=False).head(20)
 
         df_role['hovertext'] = df_role['Movies'].map(lambda movies: '<br>'.join(movies))
 

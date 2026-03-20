@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from itertools import product
 import plotly.express as px
-from utils.helper_functions import type_select, country_name
+from utils.helper_functions import country_name
 
 
 # =================================================================================================
@@ -12,24 +12,21 @@ st.title('Analysis of genres')
 
 df = st.session_state.df
 
+dir = 'processed_data/3_Genres'
+
 if 'df_genres' not in st.session_state:
-    df_genres = df.explode('Genres')
-    df_genres = df_genres[df_genres['Genres'] != '']
-    st.session_state.df_genres = df_genres
+    st.session_state.df_genres = pd.read_parquet(dir + '/df_genres.parquet')
 
 df_genres = st.session_state.df_genres
 
-st.write('In this analysis, considering both the series and the episodes is "counting double", so we :yellow[exlude episodes by default]. Still, you can switch it on below.')
-
-allowed_types = type_select('genres', default=[True, True, False, True, True])
-df_genres = df_genres[df_genres['Type'].isin(allowed_types)]
+st.write('In this analysis, considering both the series and the episodes is "counting double", so we :yellow[exclude episodes].')
 
 # =================================================================================================
 
 st.subheader('What genres are listed in our dataset?')
 
 genres_count = df_genres['Genres'].value_counts()
-genres_by_type = df_genres[['Genres', 'Type']].groupby(['Genres', 'Type'], observed=True).size().reset_index(name='Count')
+genres_by_type = pd.read_parquet(dir + '/df_genres_by_type.parquet')
 genres_by_type['Genres'] = pd.Categorical(genres_by_type['Genres'], categories=genres_count.index, ordered=True)
 
 fig = px.bar(genres_by_type.sort_values(['Genres', 'Type']), x='Genres', y='Count', color='Type', color_discrete_map=st.session_state.type_colors,
@@ -49,25 +46,14 @@ st.write(
 )
 
 blocked_genres = ['Game-Show', 'Reality-TV', 'Talk-Show', 'Adult', 'Short']
-df_genres = df_genres[~df_genres['Genres'].isin(blocked_genres)]
-genres_count = df_genres['Genres'].value_counts()
+df_genres_filtered = df_genres[~df_genres['Genres'].isin(blocked_genres)]
+genres_count = df_genres_filtered['Genres'].value_counts()
 
 # =================================================================================================
 
 st.divider()
 
 st.subheader('Do some countries preferably produce some specific genre(s)?')
-
-st.markdown(
-    '''
-    To answer this question, below, you can :yellow[select] (or better type) the :yellow[number of countries] (that release the highest number of titles) considered.
-    _It is not recommended to use the +/-, but to type and hit enter._
-    '''
-)
-
-col1, col2 = st.columns([1, 3])
-with col1:
-    N_countries = st.number_input('Number of countries considered (between 5 and 25)', min_value=5, max_value=25, step=1, value=15)
 
 st.markdown(
     '''
@@ -81,19 +67,11 @@ st.markdown(
     '''
 )
 
-df_countries = df_genres[['Genres', 'OriginCountry']].explode('OriginCountry')
-countries_count = df_countries['OriginCountry'].value_counts().iloc[:N_countries]
-df_countries = df_countries[df_countries['OriginCountry'].isin(countries_count.index)].groupby(['OriginCountry', 'Genres'], observed=True).size().reset_index(name='Count')
-df_countries['Count'] = df_countries['Count'] / df_countries['OriginCountry'].map(countries_count)
-df_countries['OriginCountry'] = pd.Categorical(df_countries['OriginCountry'], categories=countries_count.index, ordered=True)
-df_countries['Genres'] = pd.Categorical(df_countries['Genres'], categories=genres_count.index, ordered=True)
-df_countries['OriginCountryNames'] = df_countries['OriginCountry'].map(country_name)
+df_countries = pd.read_parquet(dir + '/df_countries.parquet')
+countries_count = pd.read_parquet(dir + '/countries_count.parquet')
+genres_mean = pd.read_parquet(dir + '/genres_mean.parquet')
 
-genres_mean = df_countries[['Genres', 'Count']].groupby('Genres', observed=True).mean().reset_index()
-genres_mean['Genres'] = pd.Categorical(genres_mean['Genres'], categories=genres_count.index, ordered=True)
-genres_mean = genres_mean.sort_values('Genres')
-
-facet_wrap = 4 if N_countries <= 10 else 3
+facet_wrap = 3
 fig = px.bar(df_countries, x='OriginCountry', y='Count', facet_col='Genres', facet_col_wrap=facet_wrap,
             category_orders={'Genres': list(genres_count.index), 'OriginCountry': list(countries_count.index)}, color='OriginCountry',
             hover_data={
@@ -117,7 +95,7 @@ fig.update_xaxes(tickvals=list(countries_count.index), ticktext=[country_name(c)
 name_map = {code: country_name(code) for code in df_countries['OriginCountry'].unique()}
 fig.for_each_trace(lambda tr: tr.update(name=name_map[tr.name], legendgroup=name_map[tr.name]))
 xaxes = [ax for ax in fig.layout if ax.startswith('xaxis')]
-gap = 0.05  # 5% horizontal gap
+gap = 0.05
 for ax_name in xaxes:
     ax = fig.layout[ax_name]
     if hasattr(ax, 'domain'):
@@ -170,13 +148,13 @@ st.markdown(
     '''
 )
 
-colors = [bar.marker.color for bar in fig.data[:N_countries]]
+colors = [bar.marker.color for bar in fig.data[:25]]
 
 df_countries['SqError'] = (df_countries['Count'] - df_countries['Genres'].map(genres_mean.set_index('Genres')['Count']).astype('Float64'))**2
 countries_standard_deviation = np.sqrt(df_countries.groupby('OriginCountryNames', observed=True).sum('SqError') / countries_count.shape[0]).reset_index()
 countries_standard_deviation = df_countries.groupby('OriginCountryNames', observed=True)['SqError'].mean().pow(0.5).reset_index(name='StdDev')
 
-fig = px.bar(countries_standard_deviation, x='OriginCountryNames', y='StdDev', color_discrete_map=st.session_state.type_colors)
+fig = px.bar(countries_standard_deviation, x='OriginCountryNames', y='StdDev')
 fig.update_traces(marker_color=colors)
 st.plotly_chart(fig)
 
@@ -187,7 +165,7 @@ st.divider()
 st.subheader('Are there differences in the IMDB rating between different genres?')
 
 df_ratings = df_genres[['Genres', 'IMDBRating']]
-ratings_mean = df_ratings.groupby('Genres').median().sort_values('IMDBRating', ascending=False)
+ratings_mean = pd.read_parquet(dir + '/ratings_mean.parquet')
 
 fig = px.box(df_ratings, x='Genres', y='IMDBRating')
 fig.update_xaxes(categoryorder='array', categoryarray=ratings_mean.index)
@@ -228,11 +206,10 @@ for i, (col, opt) in enumerate(zip(cols, options)):
     if col.checkbox(opt, value=True if i == 0 else False, key='genres' + str(opt)):
         genres_to_display.append(opt)
 
-years_count = df_genres['StartYear'].value_counts()
-df_years = df_genres.loc[df_genres['Genres'].isin(genres_to_display), ['Genres', 'StartYear']].groupby(['Genres', 'StartYear']).size().reset_index(name='Count')
-df_years['Count'] = df_years['Count'] / df_years['StartYear'].map(years_count)
+df_years = pd.read_parquet(dir + '/df_years.parquet')
+df_years = df_years[df_years['Genres'].isin(genres_to_display)]
 
-fig = px.line(df_years[df_years['Genres'].isin(genres_to_display)], x='StartYear', y='Count', color='Genres')
+fig = px.line(df_years, x='StartYear', y='Count', color='Genres')
 fig.update_xaxes(range=[1870, 2030], tickmode='array', tickvals=list(range(1870, 2030, 10)))
 st.plotly_chart(fig)
 

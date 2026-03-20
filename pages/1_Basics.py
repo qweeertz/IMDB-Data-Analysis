@@ -1,7 +1,7 @@
 import streamlit as st
 import plotly.express as px
 import pandas as pd
-from utils.helper_functions import votes_slider, type_select, country_name, lang_name
+from utils.helper_functions import votes_slider, country_name, lang_name
 
 
 # =================================================================================================
@@ -31,16 +31,9 @@ st.plotly_chart(fig)
 st.markdown(
     '''
     The majority of titles in the :yellow[entire dataset] are individual episodes of TV series. This is, of course, due to the mass of episodes present.
-    TV series themselves make up approximately 8% of the data, or around 34k titles. :yellow[Individual TV episodes dominate] the dataset for
+    TV series themselves make up approximately 10% of the data, or around 42k titles. :yellow[Individual TV episodes dominate] the dataset for
     :yellow[small number of minimum IMDB votes], however, they quickly become less relevant when increasing the number of minimum IMDB votes.
     At :yellow[very high numbers of minimum IMDB votes] (20.000), :yellow[movies clearly dominate] making up approximately 75% of the dataset.
-
-    To unravel the data in future analysis, we focus on different branches, including
-    - Movies (types 'movie' and 'tvMovie')
-    - Series (types 'tvSeries' and 'tvMiniSeries')
-    - Episodes (type 'tvEpisode')
-    - Games (type 'videoGame')
-    - Shorts (types 'short' and 'tvShort')
     '''
 )
 
@@ -54,21 +47,12 @@ st.write(
     '''
     _Disclaimer_: Different seasons of TV series may of course be released over some years.
     Since we only have data of the starting and ending year (so we do not know which/how many seasons were released in between these years),
-    we :yellow[only consider the starting year] - even for TV series'.
+    we :yellow[only consider the starting year] - even for TV series.
     '''
 )
 
-votes = votes_slider('slider_basics_year')
-votes_filter = (df['IMDBVotes'] >= votes)
-
-df_years = df[votes_filter][['StartYear', 'Type']]
+df_years = df[['StartYear', 'Type']]
 total_titles = df_years.dropna(subset='StartYear').shape[0]
-
-st.write(
-    f'''
-    Total number of titles depicted: :yellow[{total_titles}]
-    '''
-)
 
 fig = px.histogram(df_years, x='StartYear', color='Type', color_discrete_map=st.session_state.type_colors)
 fig.update_layout(bargap=0.05, xaxis_title='Release Year', yaxis_title='Count')
@@ -80,8 +64,8 @@ st.write(
     A few notes:
     - The data is :yellow[not completely up-to-date]. As far as I could tell, the IMDB is not specific about how up-to-date their publicly available files are.
     Of course, this affects the data for the more recent years, in particular 2026.
-    - In the earliest years, roughly :yellow[before 1920], :yellow[basically all titles] released were :yellow[short movies].
-    - Also, :yellow[video games] only appeared in :yellow[more recent years] (earlist title in 1974) while :yellow[TV series] roughly appeared :yellow[after 1950].
+    - In the earliest years, roughly :yellow[before 1920], the :yellow[large majority of titles] released were :yellow[short movies].
+    - Also, :yellow[video games] only appeared in :yellow[more recent years] (earliest title listed in 1974) while :yellow[TV series] roughly appeared :yellow[after 1950].
     - One can clearly see an :yellow[incision due to Covid] in 2020 :yellow[most crucial] for :yellow[movies].
     Interestingly, which is pretty hard to see in this plot, this incision is :yellow[not present for TV series], but for TV episodes.
     This :yellow[may indicate] that many TV series were :yellow[cut short] due to Covid but were :yellow[still released].
@@ -103,17 +87,16 @@ st.write(
     '''
 )
 
-allowed_types = type_select('select_basics_countrylanguage')
 votes = votes_slider('slider_basics_countrylanguage')
 votes_filter = (df['IMDBVotes'] >= votes)
-df_filter = df[votes_filter & (df['Type'].isin(allowed_types))]
+df_filtered = df[votes_filter]
 
-df_countries = df_filter[['OriginCountry']].explode('OriginCountry').dropna(subset='OriginCountry').value_counts().reset_index()
+df_countries = df_filtered[['OriginCountry']].explode('OriginCountry').dropna(subset='OriginCountry').value_counts().reset_index()
 df_countries['CountryNames'] = df_countries['OriginCountry'].map(country_name)
-df_languages = df_filter[['OriginalLanguage']].value_counts().reset_index()
+df_languages = df_filtered[['OriginalLanguage']].value_counts().reset_index()
 df_languages['LanguageNames'] = df_languages['OriginalLanguage'].map(lang_name)
 
-nonna_titles, total_titles = df_filter['OriginCountry'].apply(lambda x: len(x) > 0).sum(), df_filter[['OriginCountry']].shape[0]
+nonna_titles, total_titles = df_filtered['OriginCountry'].apply(lambda x: len(x) > 0).sum(), df_filtered[['OriginCountry']].shape[0]
 
 st.write(
     f'''
@@ -132,12 +115,12 @@ with col2:
 st.write(
     '''
     A few notes:
-    - The colors generally do not match: The biggest orange area on the left is India while it is japanese on the right.
+    - The :yellow[colors] between the 2 plots generally :yellow[do not match]: The biggest orange area on the left is India while it is japanese on the right.
     - Since some languages are spoken in more than one country, e.g. english in the US and the UK, the two plots differ.
     - In addition, for example indian movies come in different languages, including Hindi and Tamil and thus, India makes up a large portion in the left plot
     while these titles are distributed to smaller areas on the right.
     - The large majority of movies come from the US.
-    Also, when filtering the data for titles with a larger number of minimum IMDB votes, the US (and more so english on the right) becomes much more dominant.
+    Also, :yellow[when filtering] the data for titles with a larger number of minimum IMDB votes, the :yellow[US] (and more so english on the right) becomes :yellow[much more dominant].
     So, the US (and english) dominates the most popular titles.
     '''
 )
@@ -184,7 +167,7 @@ st.write(
 
 st.divider()
 
-st.subheader('How does the runtime change over the years?')
+st.header('What can we learn about the runtime?')
 
 st.write(
     '''
@@ -210,11 +193,7 @@ st.write(
     '''
 )
 
-st.markdown(
-    '''
-    #### So how does the runtime develop over time? Is there a trend?
-    '''
-)
+st.subheader('So how does the (average) runtime develop over time? Is there a trend?')
 
 fig = px.line(df_runtime.groupby(['Type', 'StartYear']).mean('Runtime').reset_index(), x='StartYear', y='Runtime', color='Type', color_discrete_map=st.session_state.type_colors)
 fig.update_xaxes(range=[1870, 2030], tickmode='array', tickvals=list(range(1870, 2030, 10)))
@@ -230,7 +209,7 @@ st.write(
     stayed :yellow[fairly constant] over time, perhaps with a :yellow[slight tendency] in :yellow[recent years] to :yellow[longer episodes].
     In the last 1-2 decades, series became much more popular and better produced. It would be no surprise that the average episode length increased with it.
     - At the first few decades movies were quite short well below 90 minutes. Then, over decades, from :yellow[1960-2020], they remained :yellow[very consistently]
-    at :yellow[100 minutes], but in the :yellow[last few years], the runtime of movies seems to have :yellow[increased].
+    at :yellow[100 minutes], but in the :yellow[last few years], the runtime of movies seems to have :yellow[slightly increased].
     Again, the last year of 2026 should be excluded due to incomplete data.
     '''
 )
