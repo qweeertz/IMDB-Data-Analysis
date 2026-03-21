@@ -16,7 +16,7 @@ if __name__ == '__main__':
     print()
 
     print('Processing the data for the streamlit app... This may take a couple of minutes.')
-    process_general_data()
+    process_general_data(small_dataset=True)
     pdfp = process_data_for_pages()
     pdfp.prepare_all()
     print('Processing complete.')

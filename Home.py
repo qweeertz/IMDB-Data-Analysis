@@ -68,9 +68,17 @@ st.session_state.list_columns = ['OriginCountry', 'Genres', 'Directors', 'Writer
 
 st.title('Overview & Introduction')
 
+st.write(
+    '''
+    :red[_Disclaimer_: The data shown in the streamlit cloud app is a small excerpt (around 17.000 titles with at least 10.000 IMDB votes) of the full dataset
+    (more than 400.000 titles with at least 100 IMDB votes). Some features and the conclusions written in the texts are usually meant for the full dataset and thus,
+    may not be accurate in this showcase of the app. Run the code locally to obtain the full dataset yourself (this takes a few hours).]
+    '''
+)
+
 # =================================================================================================
 
-st.subheader('Data Sources')
+st.header('Data Sources')
 
 st.markdown(
     '''
@@ -108,7 +116,7 @@ st.write(
 
 # =================================================================================================
 
-st.subheader('Data Cleaning & Preparation')
+st.header('Data Cleaning & Preparation')
 
 st.write(
     '''
@@ -123,7 +131,7 @@ st.write(
 
 st.divider()
 
-st.subheader('The Data')
+st.header('The Data')
 
 df_display = df[(df['Type'].isin(['Movies', 'Series', 'Shorts'])) & (df['IMDBVotes'] >= 10000)].sort_values(by='IMDBRating', ascending=False).head(50).copy()
 df_display[st.session_state.list_columns] = df_display[st.session_state.list_columns].astype(str)

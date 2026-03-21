@@ -23,7 +23,7 @@ st.write('In this analysis, considering both the series and the episodes is "cou
 
 # =================================================================================================
 
-st.subheader('What genres are listed in our dataset?')
+st.header('What genres are listed in our dataset?')
 
 genres_count = df_genres['Genres'].value_counts()
 genres_by_type = pd.read_parquet(dir + '/df_genres_by_type.parquet')
@@ -53,7 +53,7 @@ genres_count = df_genres_filtered['Genres'].value_counts()
 
 st.divider()
 
-st.subheader('Do some countries preferably produce some specific genre(s)?')
+st.header('Do some countries preferably produce some specific genre(s)?')
 
 st.markdown(
     '''
@@ -162,9 +162,9 @@ st.plotly_chart(fig)
 
 st.divider()
 
-st.subheader('Are there differences in the IMDB rating between different genres?')
+st.header('Are there differences in the IMDB rating between different genres?')
 
-df_ratings = df_genres[['Genres', 'IMDBRating']]
+df_ratings = df_genres_filtered[['Genres', 'IMDBRating']]
 ratings_mean = pd.read_parquet(dir + '/ratings_mean.parquet')
 
 fig = px.box(df_ratings, x='Genres', y='IMDBRating')
@@ -189,7 +189,7 @@ st.write(
 
 st.divider()
 
-st.subheader('How has the release of genres changed over time?')
+st.header('How has the release of genres changed over time?')
 
 st.write(
     '''

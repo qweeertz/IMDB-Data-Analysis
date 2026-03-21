@@ -40,7 +40,7 @@ for r, role in enumerate(roles):
 
             # =====================================================================================
 
-            st.subheader(f'Who are the most active {role.lower()} and who has the highest average IMDB rating (based on titles they worked on)?')
+            st.header(f'Who are the most active {role.lower()} and who has the highest average IMDB rating (based on titles they worked on)?')
 
             st.write(
                 f'''
@@ -95,7 +95,7 @@ for r, role in enumerate(roles):
 
             st.divider()
 
-            st.subheader('What are statistics about individual ' + role.lower() + '?')
+            st.header('What are statistics about individual ' + role.lower() + '?')
 
             col1, col2 = st.columns([1, 3])
             with col1:
@@ -137,7 +137,7 @@ for r, role in enumerate(roles):
 
         elif role == 'Graph':
 
-            st.subheader('Network')
+            st.header('Network')
 
             st.write(
                 '''

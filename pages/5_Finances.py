@@ -98,7 +98,7 @@ st.markdown(
 
 st.divider()
 
-st.subheader('What is the general distribution?')
+st.header('What is the general distribution?')
 
 st.write(
     '''
@@ -149,7 +149,7 @@ st.plotly_chart(fig)
 
 st.divider()
 
-st.subheader('How much money does the industry make?')
+st.header('How much money does the industry make?')
 
 col1, col2, col3 = st.columns(3)
 col1.metric('Total budget', f'{df_roi['Budget'].sum():,.0f} US$'.replace(',', '.'))
@@ -173,7 +173,7 @@ st.write(
 
 st.divider()
 
-st.subheader('How did the (total) budget, revenue and profit evolve over the years?')
+st.header('How did the (total) budget, revenue and profit evolve over the years?')
 
 df_years = pd.read_parquet(dir + '/df_years.parquet')
 fig = px.line(df_years, x='StartYear', y=['Budget', 'Revenue', 'Profit'])
@@ -198,7 +198,7 @@ st.write(
 
 st.divider()
 
-st.subheader('Is there a connection between IMDB Rating and Budget/Revenue/ROI?')
+st.header('Is there a connection between IMDB Rating and Budget/Revenue/ROI?')
 
 col1, col2 = st.columns([0.2, 0.8])
 with col1:
@@ -224,7 +224,7 @@ st.write(
 
 st.divider()
 
-st.subheader('What genres are most expensive to make? What genres generate the highest revenue and offer the highest ROI?')
+st.header('What genres are most expensive to make? What genres generate the highest revenue and offer the highest ROI?')
 
 df_genres = pd.read_parquet(dir + '/df_genres.parquet')
 
@@ -276,7 +276,7 @@ st.write(
 
 st.divider()
 
-st.subheader('Which directors/actors/actresses achieve the best box office results?')
+st.header('Which directors/actors/actresses achieve the best box office results?')
 
 st.write('_Disclaimer_: This takes a couple of seconds.')
 

@@ -16,7 +16,7 @@ db_path = 'raw_data/data.duckdb'
 
 # =================================================================================================
 
-def process_general_data(db_path=db_path, processed_data_path=processed_data_path):
+def process_general_data(small_dataset=False, db_path=db_path, processed_data_path=processed_data_path):
 
     if not os.path.exists(db_path):
         raise FileNotFoundError('Required file ' + db_path + ' not found. Download data first!')
@@ -26,6 +26,9 @@ def process_general_data(db_path=db_path, processed_data_path=processed_data_pat
 
     con = duckdb.connect(db_path)
     df = con.execute('SELECT * FROM view_titles_100').fetchdf()
+
+    if small_dataset:
+        df = df[df['IMDBVotes'] >= 10000]
     
     columns_to_change_NA_type = ['PrimaryTitle', 'OriginalTitle', 'OriginalLanguage', 'Type', 'StartYear', 'EndYear', 'Genres', 'Runtime', 'Budget', 'Revenue', 'Adult', 'IMDBRating', 'IMDBVotes', 'TMDBRating', 'TMDBVotes']
     df[columns_to_change_NA_type] = df[columns_to_change_NA_type].replace('\\N', pd.NA)
