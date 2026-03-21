@@ -4,6 +4,7 @@ duckdb
 plotly
 pycountry
 langcodes
+language_data
 aiohttp
 aiolimiter
 networkx
