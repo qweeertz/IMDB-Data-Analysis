@@ -64,6 +64,9 @@ def process_general_data(small_dataset=False, db_path=db_path, processed_data_pa
 
     df.to_parquet(processed_data_path + '/full_data.parquet')
 
+    # Create a smaller dataset for the machine learning notebook.
+    df[(df['Type'] == 'Movies') & (df['IMDBVotes'] >= 10000)].reset_index(drop=True).to_parquet(processed_data_path + '/excerpt_data.parquet')
+
 
 def load_data(processed_data_path=processed_data_path):
     df = pd.read_parquet(processed_data_path + '/full_data.parquet')
@@ -398,8 +401,3 @@ class Graph():
 
         # Render in Streamlit
         net.save_graph(self.graph_path + '/Network.html')
-
-if __name__ == '__main__':
-    pdfp = process_data_for_pages()
-    pdfp.Finances()
-    graph = Graph()
