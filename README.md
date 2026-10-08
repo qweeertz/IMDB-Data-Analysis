@@ -35,7 +35,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 # python -m src.prepare_all_data  # Execute only if you want to download all data!
-streamlit run streamlit_app/Home.py
+streamlit run Home.py
 ```
 
 ---
